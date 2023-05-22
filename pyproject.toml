@@ -1,0 +1,59 @@
+[build-system]
+requires = [
+    # setuptools 42+ required for metadata.license_files support in setup.cfg
+    "setuptools>=42,<68",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+target-version = ["py39", "py310"]
+color = true
+skip_magic_trailing_comma = true
+
+[tool.isort]
+profile = "black"
+known_first_party = ["tests", "faissknn"]
+skip_gitignore = true
+color_output = true
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+show_error_codes = true
+exclude = "(build|data|dist|docs/src|images|logo|logs|output)/"
+
+# Strict
+warn_unused_configs = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true
+
+[tool.pydocstyle]
+convention = "google"
+match_dir = "(faissknn)"
+
+[tool.pytest.ini_options]
+# Skip slow tests by default
+addopts = "-m 'not slow'"
+# https://docs.pytest.org/en/latest/how-to/capture-warnings.html
+markers = [
+    "slow: marks tests as slow",
+]
+norecursedirs = [
+    ".ipynb_checkpoints",
+    "data",
+    "__pycache__",
+]
+testpaths = [
+    "tests",
+]
