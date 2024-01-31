@@ -5,7 +5,7 @@
 
 The FAISS authors recommend to install `faiss` through conda e.g. `conda install -c pytorch faiss-gpu`. See [FAISS install page](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md) for more info.
 
-Once `faiss` is installed, `faissknn` can be install through pypi:
+Once `faiss` is installed, `faissknn` can be installed through pypi:
 
 ```
 pip install faissknn
