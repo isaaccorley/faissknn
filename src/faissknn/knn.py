@@ -52,7 +52,7 @@ class FaissKNNClassifier:
             Feature dimension
         """
         if self.cuda:
-            self.res = faiss.StandardGpuResources()  # ty: ignore[possibly-missing-attribute]
+            self.res = faiss.StandardGpuResources()  # type: ignore[possibly-missing-attribute]
             self.config = faiss.GpuIndexFlatConfig()
             self.config.device = self.device
             self.index = faiss.GpuIndexFlatL2(self.res, d, self.config)
@@ -106,7 +106,7 @@ class FaissKNNClassifier:
             Predicted labels (N,)
         """
         X = np.atleast_2d(X).astype(np.float32)
-        _, idx = self.index.search(X, k=self.n_neighbors)  # ty: ignore[missing-argument]
+        _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         class_idx = self.y[idx]
         counts = np.apply_along_axis(
             lambda x: np.bincount(x, minlength=self.n_classes),  # type: ignore[invalid-argument-type]
