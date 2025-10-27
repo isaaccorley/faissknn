@@ -1,4 +1,5 @@
 # FAISSKNN
+
 `faissknn` contains implementations for both multiclass and multilabel K-Nearest Neighbors Classifier implementations. The classifiers follow the `scikit-learn`: `fit`, `predict`, and `predict_proba` methods.
 
 ### Install
@@ -44,7 +45,7 @@ from faissknn import FaissKNNMultilabelClassifier
 
 x, y = make_multilabel_classification()
 x_train, x_test, y_train, y_test = train_test_split(x, y)
-model = FaissKNNClassifier(
+model = FaissKNNMultilabelClassifier(
     n_neighbors=5,
     device="cpu"
 )
