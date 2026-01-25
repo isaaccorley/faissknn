@@ -1,4 +1,6 @@
-# FAISSKNN
+# faissknn
+
+[![DOI](https://zenodo.org/badge/644113143.svg)](https://doi.org/10.5281/zenodo.18370747)
 
 `faissknn` contains implementations for both multiclass and multilabel K-Nearest Neighbors Classifier implementations. The classifiers follow the `scikit-learn`: `fit`, `predict`, and `predict_proba` methods.
 
@@ -66,4 +68,21 @@ model = FaissKNNClassifier(
     n_neighbors=5,
     device="cuda:0"
 )
+```
+
+### Cite
+
+If you use `faissknn` in your research, please considering citing!
+
+```bibtex
+@software{isaac_corley_2026_18370748,
+  author       = {Isaac Corley},
+  title        = {isaaccorley/faissknn: Zenodo Cite},
+  month        = jan,
+  year         = 2026,
+  publisher    = {Zenodo},
+  version      = {v0.0.3},
+  doi          = {10.5281/zenodo.18370748},
+  url          = {https://doi.org/10.5281/zenodo.18370748},
+}
 ```
