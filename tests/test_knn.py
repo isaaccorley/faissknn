@@ -23,3 +23,11 @@ def test_multilabel_knn(multilabel_dataset: Sequence[np.ndarray]):
     y_proba = knn.predict_proba(x_test)
     assert y_pred.ndim == 2
     assert y_proba.ndim == 2
+
+
+def test_use_fp16_is_cpu_safe(multiclass_dataset):
+    """use_fp16 is a GPU-only knob — must be a silent no-op on CPU."""
+    x_train, y_train, x_test, _ = multiclass_dataset
+    knn = FaissKNNClassifier(n_neighbors=5, device="cpu", use_fp16=True)
+    knn.fit(x_train, y_train)
+    assert knn.predict(x_test).shape == (len(x_test),)
