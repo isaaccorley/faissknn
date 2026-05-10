@@ -34,9 +34,12 @@ trap 'rm -rf "$WORK"' EXIT
 cd "$WORK"
 
 echo "==> Cloning $REPO_URL ($GIT_REF) on $(hostname)"
-git clone --depth 50 "$REPO_URL" repo
+# Fetch the specific ref directly so branch/tag/sha all work without
+# needing local tracking branches.
+git clone --no-checkout "$REPO_URL" repo
 cd repo
-git checkout "$GIT_REF"
+git fetch --depth 50 origin "$GIT_REF" 2>/dev/null || git fetch origin "$GIT_REF"
+git checkout FETCH_HEAD
 git log -1 --oneline
 
 source /etc/profile.d/lmod.sh 2>/dev/null || source /usr/share/lmod/lmod/init/bash 2>/dev/null || true
@@ -74,9 +77,14 @@ python -m pip install --quiet numpy "torch>=2,<3" packaging \
 echo "==> Unzipping wheel into $SITE"
 unzip -oq faiss-wheel.whl -d "$SITE"
 
-echo "==> Installing faissknn + dev deps from $GIT_REF"
-python -m pip install --quiet ".[dev]" || python -m pip install --quiet . \
-    pytest pytest-cov scikit-learn
+echo "==> Installing faissknn (--no-deps; runtime deps already provisioned)"
+# Use --no-deps because faiss-cuda-cu128 in our deps is manylinux_2_34, which
+# pip refuses to install on RAILS (glibc 2.28). We pre-installed it above via
+# unzip-into-site-packages, so pip just needs to drop our package files in.
+python -m pip install --quiet --no-deps .
+# Test-time deps (the project's [dependency-groups].dev isn't a PEP 508 extra
+# so we can't `.[dev]`; list explicitly).
+python -m pip install --quiet pytest pytest-cov scikit-learn
 
 echo "==> Sanity import"
 python - <<'PY'
