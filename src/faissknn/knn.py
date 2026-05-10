@@ -92,113 +92,54 @@ class FaissKNNClassifier:
             self.res.noTempMemory()
             del self.res
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict int labels given X.
+    def _class_counts(self, class_idx: np.ndarray) -> np.ndarray:
+        """Per-row class histogram via scatter-add.
 
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-
-        Returns
-        -------
-        np.ndarray
-            Predicted labels (N,)
+        Replaces the previous ``np.apply_along_axis(bincount, ...)`` which
+        ran a Python-level loop under the hood.
         """
+        n = class_idx.shape[0]
+        counts = np.zeros((n, self.n_classes), dtype=np.int64)  # type: ignore[arg-type]
+        np.add.at(counts, (np.arange(n)[:, None], class_idx), 1)
+        return counts
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict int labels given X."""
         X = np.atleast_2d(X).astype(np.float32)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         class_idx = self.y[idx]
-        counts = np.apply_along_axis(
-            lambda x: np.bincount(x, minlength=self.n_classes),  # type: ignore[invalid-argument-type]
-            axis=1,
-            arr=class_idx.astype(np.int16),
-        )
-        return np.argmax(counts, axis=1)
+        return np.argmax(self._class_counts(class_idx), axis=1)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Predict float probabilities for labels given X.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-
-        Returns
-        -------
-        np.ndarray
-            Predicted probabilities per label (N, c)
-        """
+        """Predict float probabilities for labels given X."""
         X = np.atleast_2d(X).astype(np.float32)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         class_idx = self.y[idx]
-        counts = np.apply_along_axis(
-            lambda x: np.bincount(x, minlength=self.n_classes),  # type: ignore[invalid-argument-type]
-            axis=1,
-            arr=class_idx.astype(np.int16),
-        )
-        return counts / self.n_neighbors
+        return self._class_counts(class_idx) / self.n_neighbors
 
 
 class FaissKNNMultilabelClassifier(FaissKNNClassifier):
     """A multilabel exact KNN classifier implemented using the FAISS library."""
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict one-hot int labels given X.
+    def _neighbor_label_sums(self, X: np.ndarray) -> np.ndarray:
+        """Per-query, per-label count of positive (``==1``) neighbors.
 
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-
-        Returns
-        -------
-        np.ndarray
-            Predicted labels (N, c)
+        Returns an array of shape ``(N, L)`` where ``L`` is the number of
+        label dimensions. Replaces the previous per-label Python loop
+        over ``np.apply_along_axis(bincount, ...)``.
         """
         X = np.atleast_2d(X).astype(np.float32)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
-        class_idx = self.y[idx]
+        # self.y[idx] -> (N, k, L) with values in {0, 1}; sum over k gives
+        # count of 1s per (query, label).
+        return self.y[idx].sum(axis=1)
 
-        preds = []
-        for i in range(class_idx.shape[-1]):
-            class_idx_i = class_idx[..., i]
-            counts_i = np.apply_along_axis(
-                lambda x: np.bincount(x, minlength=2),
-                axis=1,
-                arr=class_idx_i.astype(np.int16),
-            )
-            preds_i = np.argmax(counts_i, axis=1)
-            preds.append(preds_i)
-
-        return np.stack(preds, axis=1)
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict one-hot int labels given X."""
+        ones = self._neighbor_label_sums(X)
+        # Matches argmax([zeros, ones]) tie-to-zero behavior of the old impl.
+        return (ones > self.n_neighbors - ones).astype(int)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Predict float probabilities for labels given X.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-
-        Returns
-        -------
-        np.ndarray
-            Predicted probabilities per label (N, c)
-        """
-        X = np.atleast_2d(X).astype(np.float32)
-        _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
-        class_idx = self.y[idx]
-
-        preds_proba = []
-        for i in range(class_idx.shape[-1]):
-            class_idx_i = class_idx[..., i]
-            counts_i = np.apply_along_axis(
-                lambda x: np.bincount(x, minlength=2),
-                axis=1,
-                arr=class_idx_i.astype(np.int16),
-            )
-            preds_proba_i = counts_i / self.n_neighbors
-            preds_proba_i = preds_proba_i[:, 1]
-            preds_proba.append(preds_proba_i)
-
-        return np.stack(preds_proba, axis=1)
+        """Predict float probabilities for labels given X."""
+        return self._neighbor_label_sums(X) / self.n_neighbors
