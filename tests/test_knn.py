@@ -5,9 +5,9 @@ import numpy as np
 from faissknn import FaissKNNClassifier, FaissKNNMultilabelClassifier
 
 
-def test_multiclass_knn(multiclass_dataset: Sequence[np.ndarray]):
+def test_multiclass_knn(device: str, multiclass_dataset: Sequence[np.ndarray]):
     x_train, y_train, x_test, _ = multiclass_dataset
-    knn = FaissKNNClassifier(n_neighbors=5, n_classes=None, device="cpu")
+    knn = FaissKNNClassifier(n_neighbors=5, n_classes=None, device=device)
     knn.fit(x_train, y_train)
     y_pred = knn.predict(x_test)
     y_proba = knn.predict_proba(x_test)
@@ -15,9 +15,9 @@ def test_multiclass_knn(multiclass_dataset: Sequence[np.ndarray]):
     assert y_proba.ndim == 2
 
 
-def test_multilabel_knn(multilabel_dataset: Sequence[np.ndarray]):
+def test_multilabel_knn(device: str, multilabel_dataset: Sequence[np.ndarray]):
     x_train, y_train, x_test, _ = multilabel_dataset
-    knn = FaissKNNMultilabelClassifier(n_neighbors=5, n_classes=None, device="cpu")
+    knn = FaissKNNMultilabelClassifier(n_neighbors=5, n_classes=None, device=device)
     knn.fit(x_train, y_train)
     y_pred = knn.predict(x_test)
     y_proba = knn.predict_proba(x_test)
