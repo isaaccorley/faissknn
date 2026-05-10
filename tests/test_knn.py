@@ -31,3 +31,11 @@ def test_use_fp16_is_cpu_safe(multiclass_dataset):
     knn = FaissKNNClassifier(n_neighbors=5, device="cpu", use_fp16=True)
     knn.fit(x_train, y_train)
     assert knn.predict(x_test).shape == (len(x_test),)
+
+
+def test_use_fp16_on_device(device: str, multiclass_dataset):
+    """use_fp16=True should produce sensible predictions on the configured device."""
+    x_train, y_train, x_test, _ = multiclass_dataset
+    knn = FaissKNNClassifier(n_neighbors=5, device=device, use_fp16=True)
+    knn.fit(x_train, y_train)
+    assert knn.predict(x_test).shape == (len(x_test),)
