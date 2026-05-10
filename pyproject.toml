@@ -11,18 +11,19 @@ license = { file = "LICENSE" }
 authors = [
   { name = "Isaac Corley", email = "isaac.corley@proton.me" },
 ]
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.15"
 classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 
 dependencies = [
-  "faiss-gpu-cu12>=1,<2",
-  "numpy>=1,<2",
+  "faiss-cuda-cu128>=1.14.1.post1,<2",
+  "numpy>=2,<3",
   "torch>=2,<3",
 ]
 

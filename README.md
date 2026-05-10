@@ -6,13 +6,11 @@
 
 ### Install
 
-The FAISS authors recommend to install `faiss` through conda e.g. `conda install -c pytorch faiss-gpu`. See [FAISS install page](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md) for more info.
-
-Once `faiss` is installed, `faissknn` can be installed through pypi:
-
-```
+```bash
 pip install faissknn
 ```
+
+This pulls in [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU-enabled FAISS wheels for CUDA 12.x) along with `numpy` and `torch`. No system CUDA toolkit required — just an NVIDIA driver new enough for CUDA 12 (R525+).
 
 ### Usage
 
