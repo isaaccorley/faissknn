@@ -1,7 +1,21 @@
 """FAISS-based KNN classifiers for multiclass and multilabel classification."""
 
+from typing import Any
+
 import faiss
 import numpy as np
+
+# torch is a hard runtime dependency of this package, but be defensive in
+# case anyone uses faissknn in a torch-free env (e.g. mocked imports).
+try:
+    import torch
+
+    import faiss.contrib.torch_utils  # noqa: F401  # monkey-patches faiss add/search
+
+    _TORCH_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    torch = None  # type: ignore[assignment]
+    _TORCH_AVAILABLE = False
 
 
 class FaissKNNClassifier:
@@ -16,20 +30,19 @@ class FaissKNNClassifier:
         Number of dataset classes (otherwise derived from the data)
     device : str, default="cpu"
         A torch device, e.g. cpu, cuda, cuda:0, etc.
+
+    Accepts both NumPy arrays and (CUDA-resident) PyTorch tensors for ``fit``
+    and ``predict``. When a CUDA tensor is passed and ``device != "cpu"``, the
+    FAISS search runs directly against the GPU memory — no CPU round-trip.
     """
 
-    def __init__(self, n_neighbors: int, n_classes: int | None = None, device: str = "cpu") -> None:
-        """Instantiate a faiss KNN Classifier.
-
-        Parameters
-        ----------
-        n_neighbors : int
-            Number of KNN neighbors
-        n_classes : int, optional
-            Number of dataset classes (otherwise derived from the data)
-        device : str, default="cpu"
-            A torch device, e.g. cpu, cuda, cuda:0, etc.
-        """
+    def __init__(
+        self,
+        n_neighbors: int,
+        n_classes: int | None = None,
+        device: str = "cpu",
+    ) -> None:
+        """Instantiate a faiss KNN Classifier."""
         self.n_neighbors = n_neighbors
         self.n_classes = n_classes
 
@@ -43,14 +56,31 @@ class FaissKNNClassifier:
             else:
                 self.device = 0
 
-    def create_index(self, d: int) -> None:
-        """Create the faiss index.
+    def _as_index_input(self, X: Any) -> Any:
+        """Coerce input to something the FAISS index can ingest efficiently.
 
-        Parameters
-        ----------
-        d : int
-            Feature dimension
+        For CUDA torch tensors on a GPU index we return the tensor as-is
+        (``faiss.contrib.torch_utils`` makes ``index.search`` accept it
+        without copying through host memory). Everything else becomes a
+        contiguous fp32 numpy array.
         """
+        if _TORCH_AVAILABLE and isinstance(X, torch.Tensor):
+            X = X.detach().contiguous().to(torch.float32)
+            if self.cuda and X.is_cuda:
+                return X
+            X = X.cpu().numpy()
+        X = np.atleast_2d(X).astype(np.float32)
+        return np.ascontiguousarray(X)
+
+    @staticmethod
+    def _idx_to_numpy(idx: Any) -> np.ndarray:
+        """FAISS may return a torch tensor when given torch input — normalize."""
+        if _TORCH_AVAILABLE and isinstance(idx, torch.Tensor):
+            return idx.cpu().numpy()
+        return idx
+
+    def create_index(self, d: int) -> None:
+        """Create the faiss index."""
         if self.cuda:
             self.res = faiss.StandardGpuResources()  # type: ignore[possibly-missing-attribute]
             self.config = faiss.GpuIndexFlatConfig()
@@ -59,28 +89,16 @@ class FaissKNNClassifier:
         else:
             self.index = faiss.IndexFlatL2(d)
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> object:
-        """Store train X and y.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-        y : np.ndarray
-            Input labels (N, ...)
-
-        Returns
-        -------
-        FaissKNNClassifier
-            The fitted classifier instance
-        """
-        X = np.atleast_2d(X).astype(np.float32)
-        X = np.ascontiguousarray(X)
+    def fit(self, X: Any, y: np.ndarray) -> object:
+        """Store train X and y."""
+        X = self._as_index_input(X)
         self.create_index(X.shape[-1])
         self.index.add(X)  # type: ignore[arg-type]
+        if _TORCH_AVAILABLE and isinstance(y, torch.Tensor):
+            y = y.detach().cpu().numpy()
         self.y = y.astype(int)
         if self.n_classes is None:
-            self.n_classes = len(np.unique(y))
+            self.n_classes = len(np.unique(self.y))
         return self
 
     def __del__(self) -> None:
@@ -92,21 +110,11 @@ class FaissKNNClassifier:
             self.res.noTempMemory()
             del self.res
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict int labels given X.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-
-        Returns
-        -------
-        np.ndarray
-            Predicted labels (N,)
-        """
-        X = np.atleast_2d(X).astype(np.float32)
+    def predict(self, X: Any) -> np.ndarray:
+        """Predict int labels given X."""
+        X = self._as_index_input(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
+        idx = self._idx_to_numpy(idx)
         class_idx = self.y[idx]
         counts = np.apply_along_axis(
             lambda x: np.bincount(x, minlength=self.n_classes),  # type: ignore[invalid-argument-type]
@@ -115,21 +123,11 @@ class FaissKNNClassifier:
         )
         return np.argmax(counts, axis=1)
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Predict float probabilities for labels given X.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-
-        Returns
-        -------
-        np.ndarray
-            Predicted probabilities per label (N, c)
-        """
-        X = np.atleast_2d(X).astype(np.float32)
+    def predict_proba(self, X: Any) -> np.ndarray:
+        """Predict float probabilities for labels given X."""
+        X = self._as_index_input(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
+        idx = self._idx_to_numpy(idx)
         class_idx = self.y[idx]
         counts = np.apply_along_axis(
             lambda x: np.bincount(x, minlength=self.n_classes),  # type: ignore[invalid-argument-type]
@@ -142,21 +140,11 @@ class FaissKNNClassifier:
 class FaissKNNMultilabelClassifier(FaissKNNClassifier):
     """A multilabel exact KNN classifier implemented using the FAISS library."""
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict one-hot int labels given X.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-
-        Returns
-        -------
-        np.ndarray
-            Predicted labels (N, c)
-        """
-        X = np.atleast_2d(X).astype(np.float32)
+    def predict(self, X: Any) -> np.ndarray:
+        """Predict one-hot int labels given X."""
+        X = self._as_index_input(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
+        idx = self._idx_to_numpy(idx)
         class_idx = self.y[idx]
 
         preds = []
@@ -172,21 +160,11 @@ class FaissKNNMultilabelClassifier(FaissKNNClassifier):
 
         return np.stack(preds, axis=1)
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Predict float probabilities for labels given X.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-
-        Returns
-        -------
-        np.ndarray
-            Predicted probabilities per label (N, c)
-        """
-        X = np.atleast_2d(X).astype(np.float32)
+    def predict_proba(self, X: Any) -> np.ndarray:
+        """Predict float probabilities for labels given X."""
+        X = self._as_index_input(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
+        idx = self._idx_to_numpy(idx)
         class_idx = self.y[idx]
 
         preds_proba = []
