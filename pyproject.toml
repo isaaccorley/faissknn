@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.9.3,<0.10" ]
 
 [project]
 name = "faissknn"
-version = "0.0.2"
+version = "0.0.3"
 description = "FAISS implementation of multiclass and multilabel K-Nearest Neighbors Classifiers."
 readme = "README.md"
 license = { file = "LICENSE" }
