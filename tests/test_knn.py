@@ -67,6 +67,22 @@ def test_use_fp16_on_device(device: str, multiclass_dataset):
     assert knn.predict(x_test).shape == (len(x_test),)
 
 
+def test_accepts_torch_tensors(device: str, multiclass_dataset):
+    """fit/predict should accept torch tensors and produce identical output."""
+    import torch
+
+    x_train, y_train, x_test, _ = multiclass_dataset
+    np_knn = FaissKNNClassifier(n_neighbors=5, device=device)
+    np_knn.fit(x_train, y_train)
+    np_pred = np_knn.predict(x_test)
+
+    t_knn = FaissKNNClassifier(n_neighbors=5, device=device)
+    t_knn.fit(torch.from_numpy(x_train), torch.from_numpy(y_train))
+    t_pred = t_knn.predict(torch.from_numpy(x_test))
+
+    np.testing.assert_array_equal(np_pred, t_pred)
+
+
 def _reference_multiclass(class_idx: np.ndarray, n_classes: int) -> np.ndarray:
     """Original per-row bincount loop — kept here as the golden reference."""
     return np.apply_along_axis(
