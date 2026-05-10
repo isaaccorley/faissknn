@@ -1,12 +1,22 @@
 """FAISS-based KNN classifiers for multiclass and multilabel classification."""
 
+from typing import Literal
+
 import faiss
 import numpy as np
 
+Metric = Literal["l2", "ip", "cosine"]
+
+
+def _l2_normalize(x: np.ndarray) -> np.ndarray:
+    """Row-wise L2 normalize; safe against zero rows."""
+    norms = np.linalg.norm(x, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1.0, norms)
+    return x / norms
+
 
 class FaissKNNClassifier:
-    """
-    A multiclass exact KNN classifier implemented using the FAISS library.
+    """A multiclass exact KNN classifier implemented using the FAISS library.
 
     Parameters
     ----------
@@ -16,6 +26,17 @@ class FaissKNNClassifier:
         Number of dataset classes (otherwise derived from the data)
     device : str, default="cpu"
         A torch device, e.g. cpu, cuda, cuda:0, etc.
+    metric : {"l2", "ip", "cosine"}, default="l2"
+        Distance metric used to rank neighbors:
+          - "l2"     : squared Euclidean (FAISS IndexFlatL2)
+          - "ip"     : inner product (FAISS IndexFlatIP)
+          - "cosine" : cosine similarity; equivalent to "ip" but inputs are
+                       L2-normalized on fit and predict so the user does not
+                       have to
+    use_fp16 : bool, default=False
+        Run distance computation in fp16 on the GPU (~30% faster, half the
+        index memory on Ampere+; effectively no recall loss for typical k).
+        Vectors are still passed in as fp32. Ignored on the CPU index.
     """
 
     def __init__(
@@ -23,26 +44,16 @@ class FaissKNNClassifier:
         n_neighbors: int,
         n_classes: int | None = None,
         device: str = "cpu",
+        metric: Metric = "l2",
         use_fp16: bool = False,
     ) -> None:
-        """Instantiate a faiss KNN Classifier.
-
-        Parameters
-        ----------
-        n_neighbors : int
-            Number of KNN neighbors
-        n_classes : int, optional
-            Number of dataset classes (otherwise derived from the data)
-        device : str, default="cpu"
-            A torch device, e.g. cpu, cuda, cuda:0, etc.
-        use_fp16 : bool, default=False
-            Run distance computation in fp16 on the GPU (~30% faster and
-            half the index memory on Ampere+; effectively no recall loss for
-            typical KNN values of k). Vectors are still passed in as fp32 and
-            converted internally. Ignored on the CPU index.
-        """
+        """Instantiate a faiss KNN Classifier."""
+        if metric not in ("l2", "ip", "cosine"):
+            msg = f"metric must be one of 'l2', 'ip', 'cosine'; got {metric!r}"
+            raise ValueError(msg)
         self.n_neighbors = n_neighbors
         self.n_classes = n_classes
+        self.metric = metric
         self.use_fp16 = use_fp16
 
         if device == "cpu":
@@ -55,40 +66,32 @@ class FaissKNNClassifier:
             else:
                 self.device = 0
 
-    def create_index(self, d: int) -> None:
-        """Create the faiss index.
+    def _prepare(self, x: np.ndarray) -> np.ndarray:
+        """Apply dtype + contiguity + metric-specific preprocessing."""
+        x = np.atleast_2d(x).astype(np.float32)
+        x = np.ascontiguousarray(x)
+        if self.metric == "cosine":
+            x = _l2_normalize(x)
+        return x
 
-        Parameters
-        ----------
-        d : int
-            Feature dimension
-        """
+    def create_index(self, d: int) -> None:
+        """Create the faiss index."""
+        use_ip = self.metric in ("ip", "cosine")
         if self.cuda:
             self.res = faiss.StandardGpuResources()  # type: ignore[possibly-missing-attribute]
             self.config = faiss.GpuIndexFlatConfig()
             self.config.device = self.device
             self.config.useFloat16 = self.use_fp16
-            self.index = faiss.GpuIndexFlatL2(self.res, d, self.config)
+            if use_ip:
+                self.index = faiss.GpuIndexFlatIP(self.res, d, self.config)
+            else:
+                self.index = faiss.GpuIndexFlatL2(self.res, d, self.config)
         else:
-            self.index = faiss.IndexFlatL2(d)
+            self.index = faiss.IndexFlatIP(d) if use_ip else faiss.IndexFlatL2(d)
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> object:
-        """Store train X and y.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input features (N, d)
-        y : np.ndarray
-            Input labels (N, ...)
-
-        Returns
-        -------
-        FaissKNNClassifier
-            The fitted classifier instance
-        """
-        X = np.atleast_2d(X).astype(np.float32)
-        X = np.ascontiguousarray(X)
+        """Store train X and y."""
+        X = self._prepare(X)
         self.create_index(X.shape[-1])
         self.index.add(X)  # type: ignore[arg-type]
         self.y = y.astype(int)
@@ -106,11 +109,7 @@ class FaissKNNClassifier:
             del self.res
 
     def _class_counts(self, class_idx: np.ndarray) -> np.ndarray:
-        """Per-row class histogram via scatter-add.
-
-        Replaces the previous ``np.apply_along_axis(bincount, ...)`` which
-        ran a Python-level loop under the hood.
-        """
+        """Per-row class histogram via scatter-add."""
         n = class_idx.shape[0]
         counts = np.zeros((n, self.n_classes), dtype=np.int64)  # type: ignore[arg-type]
         np.add.at(counts, (np.arange(n)[:, None], class_idx), 1)
@@ -118,14 +117,14 @@ class FaissKNNClassifier:
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict int labels given X."""
-        X = np.atleast_2d(X).astype(np.float32)
+        X = self._prepare(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         class_idx = self.y[idx]
         return np.argmax(self._class_counts(class_idx), axis=1)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Predict float probabilities for labels given X."""
-        X = np.atleast_2d(X).astype(np.float32)
+        X = self._prepare(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         class_idx = self.y[idx]
         return self._class_counts(class_idx) / self.n_neighbors
@@ -135,13 +134,8 @@ class FaissKNNMultilabelClassifier(FaissKNNClassifier):
     """A multilabel exact KNN classifier implemented using the FAISS library."""
 
     def _neighbor_label_sums(self, X: np.ndarray) -> np.ndarray:
-        """Per-query, per-label count of positive (``==1``) neighbors.
-
-        Returns an array of shape ``(N, L)`` where ``L`` is the number of
-        label dimensions. Replaces the previous per-label Python loop
-        over ``np.apply_along_axis(bincount, ...)``.
-        """
-        X = np.atleast_2d(X).astype(np.float32)
+        """Per-query, per-label count of positive (``==1``) neighbors."""
+        X = self._prepare(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         # self.y[idx] -> (N, k, L) with values in {0, 1}; sum over k gives
         # count of 1s per (query, label).
