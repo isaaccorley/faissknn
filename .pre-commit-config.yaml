@@ -50,7 +50,11 @@ repos:
       - id: ty-check
         name: ty-check
         language: python
-        entry: uvx ty check
+        # Pin ty — it's alpha (v0.0.x) and tightens its checks frequently;
+        # later versions flag preexisting type-inference issues on the SWIG-
+        # monkey-patched faiss surface and some object-typed test fixtures.
+        # Bump deliberately when those are addressed.
+        entry: uvx ty@0.0.1a24 check
         args: [--python=.venv/]
         pass_filenames: false
 
