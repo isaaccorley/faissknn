@@ -102,6 +102,7 @@ def test_multiclass_predict_matches_reference(multiclass_dataset):
     # raw (n, x, k, distances, labels) form.
     _, idx = knn.index.search(np.atleast_2d(x_test).astype(np.float32), k=7)  # ty: ignore[missing-argument]
     class_idx = knn.y[idx]
+    assert knn.n_classes is not None  # set during fit
     expected = _reference_multiclass(class_idx, knn.n_classes)
     np.testing.assert_array_equal(knn._class_counts(class_idx), expected)
 

@@ -112,22 +112,31 @@ class FaissKNNClassifier:
         return idx
 
     def create_index(self, d: int) -> None:
-        """Create the faiss index."""
+        """Create the faiss index.
+
+        faiss exposes its GPU and CPU index classes through SWIG; ty can't
+        always introspect them as guaranteed module members. We silence
+        the per-attribute warnings on the construction calls below.
+        """
         use_ip = self.metric in ("ip", "cosine")
         if self.cuda:
-            self.res = faiss.StandardGpuResources()  # type: ignore[possibly-missing-attribute]
-            self.config = faiss.GpuIndexFlatConfig()
+            self.res = faiss.StandardGpuResources()  # ty: ignore[possibly-missing-attribute]
+            self.config = faiss.GpuIndexFlatConfig()  # ty: ignore[possibly-missing-attribute]
             self.config.device = self.device
             self.config.useFloat16 = self.use_fp16
             if use_ip:
-                self.index = faiss.GpuIndexFlatIP(self.res, d, self.config)
+                self.index = faiss.GpuIndexFlatIP(self.res, d, self.config)  # ty: ignore[possibly-missing-attribute]
             else:
-                self.index = faiss.GpuIndexFlatL2(self.res, d, self.config)
+                self.index = faiss.GpuIndexFlatL2(self.res, d, self.config)  # ty: ignore[possibly-missing-attribute]
         else:
-            self.index = faiss.IndexFlatIP(d) if use_ip else faiss.IndexFlatL2(d)
+            self.index = faiss.IndexFlatIP(d) if use_ip else faiss.IndexFlatL2(d)  # ty: ignore[possibly-missing-attribute]
 
-    def fit(self, X: Any, y: np.ndarray) -> Self:
-        """Store train X and y."""
+    def fit(self, X: Any, y: Any) -> Self:
+        """Store train X and y.
+
+        ``y`` accepts ``np.ndarray`` or ``torch.Tensor`` — tensors are
+        detached and converted to NumPy in this method.
+        """
         X = self._as_index_input(X)
         self.create_index(X.shape[-1])
         self.index.add(X)  # type: ignore[arg-type]
