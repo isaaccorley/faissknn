@@ -10,7 +10,24 @@
 pip install faissknn
 ```
 
-This pulls in [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU-enabled FAISS wheels for CUDA 12.x) along with `numpy` and `torch`. No system CUDA toolkit required — just an NVIDIA driver new enough for CUDA 12 (R525+).
+Pulls in [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU-enabled FAISS wheels for CUDA 12.8) along with `numpy` and `torch`. No system CUDA toolkit required — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI.
+
+The default wheel works on:
+- **CPU-only hosts** — `import faiss` succeeds, `faiss.get_num_gpus()` returns 0, all CPU index types work
+- **CUDA 12.x hosts** (NVIDIA driver R525+) — full GPU acceleration
+- **CUDA 13 hosts** (NVIDIA driver R580+) — via NVIDIA's forward-compat guarantee. You just don't get the `sm_100` (Blackwell) arch
+
+#### Blackwell users (B100 / B200)
+
+If you need `sm_100` baked in, use the CUDA 13 wheel:
+
+```bash
+pip install "faissknn[cu13]"
+pip uninstall -y faiss-cuda-cu128
+pip install --force-reinstall faiss-cuda
+```
+
+The `[cu13]` extra adds [`faiss-cuda`](https://pypi.org/project/faiss-cuda/) to the resolution, but because both packages ship the same `faiss/` module the manual uninstall+reinstall is what actually gives you a clean install. uv/pip can't auto-detect the host CUDA driver, so this is a one-time manual choice.
 
 ### Usage
 

@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.9.3,<0.10" ]
 
 [project]
 name = "faissknn"
-version = "0.1.0"
+version = "0.1.1"
 description = "FAISS implementation of multiclass and multilabel K-Nearest Neighbors Classifiers."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -22,10 +22,25 @@ classifiers = [
 ]
 
 dependencies = [
+  # faiss-cuda-cu128 is the default backend — widest driver compatibility.
+  # It works on:
+  #   * CPU-only hosts (GPU code is unused; faiss.get_num_gpus() returns 0)
+  #   * CUDA 12.x hosts (driver R525+) — full GPU acceleration
+  #   * CUDA 13 hosts (driver R580+) — via NVIDIA forward-compat; you only
+  #     lose the sm_100 (Blackwell) arch
+  # Users with Blackwell GPUs (B100/B200) can swap to faiss-cuda for the
+  # cu13 build with sm_100 baked in; see [cu13] extra and README.
   "faiss-cuda-cu128>=1.14.1.post1,<2",
   "numpy>=2,<3",
   "torch>=2,<3",
 ]
+
+# Opt-in alternate CUDA backend. uv/pip can't introspect the host CUDA
+# driver version, so this is a manual choice. faiss-cuda and faiss-cuda-cu128
+# both provide the same `faiss` Python module and cannot cleanly coexist;
+# follow the swap recipe in the README.
+[project.optional-dependencies]
+cu13 = ["faiss-cuda>=1.14.1.post3,<2"]
 
 [dependency-groups]
 dev = [
