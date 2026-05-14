@@ -21,7 +21,9 @@ from sklearn.neighbors import KNeighborsClassifier
 from faissknn import FaissKNNClassifier, FaissKNNMultilabelClassifier
 
 
-def _make_multiclass(n_train: int = 100, n_test: int = 20, d: int = 16, c: int = 5):
+def _make_multiclass(
+    n_train: int = 100, n_test: int = 20, d: int = 16, c: int = 5
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Deterministic multiclass dummy dataset."""
     rng = np.random.default_rng(42)
     x_train = rng.standard_normal((n_train, d)).astype(np.float32)
@@ -30,7 +32,9 @@ def _make_multiclass(n_train: int = 100, n_test: int = 20, d: int = 16, c: int =
     return x_train, y_train, x_test
 
 
-def _make_multilabel(n_train: int = 100, n_test: int = 20, d: int = 16, L: int = 4):
+def _make_multilabel(
+    n_train: int = 100, n_test: int = 20, d: int = 16, L: int = 4
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Deterministic multilabel dummy dataset."""
     rng = np.random.default_rng(43)
     x_train = rng.standard_normal((n_train, d)).astype(np.float32)
@@ -41,7 +45,7 @@ def _make_multilabel(n_train: int = 100, n_test: int = 20, d: int = 16, L: int =
 
 def _brute_force_multilabel(
     x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, k: int
-):
+) -> tuple[np.ndarray, np.ndarray]:
     """Reference multilabel KNN: euclidean distance + per-label majority vote.
 
     Ties on per-label vote go to class 0 (matches argmax(bincount([z, ones]))
@@ -62,9 +66,9 @@ def test_multiclass_matches_sklearn(k: int, device: str):
     x_train, y_train, x_test = _make_multiclass()
 
     ours = FaissKNNClassifier(n_neighbors=k, device=device).fit(x_train, y_train)
-    ref = KNeighborsClassifier(
-        n_neighbors=k, algorithm="brute", metric="euclidean"
-    ).fit(x_train, y_train)
+    ref = KNeighborsClassifier(n_neighbors=k, algorithm="brute", metric="euclidean").fit(
+        x_train, y_train
+    )
 
     np.testing.assert_array_equal(ours.predict(x_test), ref.predict(x_test))
     # sklearn returns probabilities sorted by ascending class label; our
@@ -87,6 +91,4 @@ def test_multilabel_matches_brute_force(k: int, device: str):
     ref_pred, ref_proba = _brute_force_multilabel(x_train, y_train, x_test, k)
 
     np.testing.assert_array_equal(ours.predict(x_test), ref_pred)
-    np.testing.assert_allclose(
-        ours.predict_proba(x_test), ref_proba, rtol=0, atol=1e-6
-    )
+    np.testing.assert_allclose(ours.predict_proba(x_test), ref_proba, rtol=0, atol=1e-6)

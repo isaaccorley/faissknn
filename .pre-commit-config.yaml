@@ -21,6 +21,8 @@ repos:
     rev: v1.9.0
     hooks:
       - id: numpydoc-validation
+        # Scope to the library API; test files use freeform docstrings.
+        files: ^src/
 
   - repo: https://github.com/tox-dev/pyproject-fmt
     rev: v2.8.0
@@ -37,7 +39,9 @@ repos:
     hooks:
       - id: mdformat
         additional_dependencies:
-          - mdformat-mkdocs==4.0.0
+          # mdformat-mkdocs 4.0.0 imports `zip_equal` from more_itertools,
+          # which was removed in more_itertools 11. 5.x is compatible.
+          - mdformat-mkdocs==5.1.4
           - mdformat-footnote==0.1.1
 
   - repo: https://github.com/crate-ci/typos

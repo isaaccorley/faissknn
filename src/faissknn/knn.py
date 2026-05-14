@@ -8,9 +8,8 @@ import numpy as np
 # torch is a hard runtime dependency of this package, but be defensive in
 # case anyone uses faissknn in a torch-free env (e.g. mocked imports).
 try:
+    import faiss.contrib.torch_utils  # monkey-patches faiss add/search
     import torch
-
-    import faiss.contrib.torch_utils  # noqa: F401  # monkey-patches faiss add/search
 
     _TORCH_AVAILABLE = True
 except ImportError:  # pragma: no cover
@@ -30,12 +29,16 @@ def _l2_normalize(x: np.ndarray) -> np.ndarray:
 class FaissKNNClassifier:
     """A multiclass exact KNN classifier implemented using the FAISS library.
 
+    Accepts both NumPy arrays and PyTorch tensors for ``fit`` and ``predict``.
+    When a CUDA tensor is passed and ``device != "cpu"``, the FAISS search
+    runs directly against GPU memory — no CPU round-trip.
+
     Parameters
     ----------
     n_neighbors : int
-        Number of KNN neighbors
+        Number of KNN neighbors.
     n_classes : int, optional
-        Number of dataset classes (otherwise derived from the data)
+        Number of dataset classes (otherwise derived from the data).
     device : str, default="cpu"
         A torch device, e.g. cpu, cuda, cuda:0, etc.
     metric : {"l2", "ip", "cosine"}, default="l2"
@@ -44,15 +47,11 @@ class FaissKNNClassifier:
           - "ip"     : inner product (FAISS IndexFlatIP)
           - "cosine" : cosine similarity; equivalent to "ip" but inputs are
                        L2-normalized on fit and predict so the user does not
-                       have to
+                       have to.
     use_fp16 : bool, default=False
         Run distance computation in fp16 on the GPU (~30% faster, half the
         index memory on Ampere+; effectively no recall loss for typical k).
         Vectors are still passed in as fp32. Ignored on the CPU index.
-
-    Accepts both NumPy arrays and PyTorch tensors for ``fit`` and ``predict``.
-    When a CUDA tensor is passed and ``device != "cpu"``, the FAISS search
-    runs directly against GPU memory — no CPU round-trip.
     """
 
     def __init__(
@@ -117,6 +116,11 @@ class FaissKNNClassifier:
         faiss exposes its GPU and CPU index classes through SWIG; ty can't
         always introspect them as guaranteed module members. We silence
         the per-attribute warnings on the construction calls below.
+
+        Parameters
+        ----------
+        d : int
+            Vector dimensionality of the index.
         """
         use_ip = self.metric in ("ip", "cosine")
         if self.cuda:
@@ -136,6 +140,19 @@ class FaissKNNClassifier:
 
         ``y`` accepts ``np.ndarray`` or ``torch.Tensor`` — tensors are
         detached and converted to NumPy in this method.
+
+        Parameters
+        ----------
+        X : ndarray or torch.Tensor
+            Training feature matrix, shape (n_samples, n_features).
+        y : ndarray or torch.Tensor
+            Training labels, shape (n_samples,) for multiclass or
+            (n_samples, n_labels) for multilabel.
+
+        Returns
+        -------
+        Self
+            The fitted classifier, for method chaining.
         """
         X = self._as_index_input(X)
         self.create_index(X.shape[-1])
@@ -164,7 +181,18 @@ class FaissKNNClassifier:
         return counts
 
     def predict(self, X: Any) -> np.ndarray:
-        """Predict int labels given X."""
+        """Predict int labels given X.
+
+        Parameters
+        ----------
+        X : ndarray or torch.Tensor
+            Query feature matrix, shape (n_samples, n_features).
+
+        Returns
+        -------
+        ndarray
+            Predicted integer class labels, shape (n_samples,).
+        """
         X = self._as_index_input(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         idx = self._idx_to_numpy(idx)
@@ -172,7 +200,18 @@ class FaissKNNClassifier:
         return np.argmax(self._class_counts(class_idx), axis=1)
 
     def predict_proba(self, X: Any) -> np.ndarray:
-        """Predict float probabilities for labels given X."""
+        """Predict float probabilities for labels given X.
+
+        Parameters
+        ----------
+        X : ndarray or torch.Tensor
+            Query feature matrix, shape (n_samples, n_features).
+
+        Returns
+        -------
+        ndarray
+            Predicted class probabilities, shape (n_samples, n_classes).
+        """
         X = self._as_index_input(X)
         _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         idx = self._idx_to_numpy(idx)
@@ -193,11 +232,35 @@ class FaissKNNMultilabelClassifier(FaissKNNClassifier):
         return self.y[idx].sum(axis=1)
 
     def predict(self, X: Any) -> np.ndarray:
-        """Predict one-hot int labels given X."""
+        """Predict one-hot int labels given X.
+
+        Parameters
+        ----------
+        X : ndarray or torch.Tensor
+            Query feature matrix, shape (n_samples, n_features).
+
+        Returns
+        -------
+        ndarray
+            Predicted multilabel indicator matrix, shape
+            (n_samples, n_labels), values in {0, 1}.
+        """
         ones = self._neighbor_label_sums(X)
         # Matches argmax([zeros, ones]) tie-to-zero behavior of the old impl.
         return (ones > self.n_neighbors - ones).astype(int)
 
     def predict_proba(self, X: Any) -> np.ndarray:
-        """Predict float probabilities for labels given X."""
+        """Predict float probabilities for labels given X.
+
+        Parameters
+        ----------
+        X : ndarray or torch.Tensor
+            Query feature matrix, shape (n_samples, n_features).
+
+        Returns
+        -------
+        ndarray
+            Per-label positive-vote fraction, shape (n_samples, n_labels),
+            values in ``[0, 1]``.
+        """
         return self._neighbor_label_sums(X) / self.n_neighbors

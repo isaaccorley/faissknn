@@ -13,6 +13,7 @@ pip install faissknn
 Pulls in [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU-enabled FAISS wheels for CUDA 12.8) along with `numpy` and `torch`. No system CUDA toolkit required — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI.
 
 The default wheel works on:
+
 - **CPU-only hosts** — `import faiss` succeeds, `faiss.get_num_gpus()` returns 0, all CPU index types work
 - **CUDA 12.x hosts** (NVIDIA driver R525+) — full GPU acceleration
 - **CUDA 13 hosts** (NVIDIA driver R580+) — via NVIDIA's forward-compat guarantee. You just don't get the `sm_100` (Blackwell) arch

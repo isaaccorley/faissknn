@@ -7,9 +7,7 @@ from faissknn import FaissKNNClassifier, FaissKNNMultilabelClassifier
 
 
 @pytest.mark.parametrize("metric", ["l2", "ip", "cosine"])
-def test_multiclass_knn(
-    metric: str, device: str, multiclass_dataset: Sequence[np.ndarray]
-):
+def test_multiclass_knn(metric: str, device: str, multiclass_dataset: Sequence[np.ndarray]):
     x_train, y_train, x_test, _ = multiclass_dataset
     knn = FaissKNNClassifier(n_neighbors=5, n_classes=None, device=device, metric=metric)
     knn.fit(x_train, y_train)
@@ -20,13 +18,9 @@ def test_multiclass_knn(
 
 
 @pytest.mark.parametrize("metric", ["l2", "ip", "cosine"])
-def test_multilabel_knn(
-    metric: str, device: str, multilabel_dataset: Sequence[np.ndarray]
-):
+def test_multilabel_knn(metric: str, device: str, multilabel_dataset: Sequence[np.ndarray]):
     x_train, y_train, x_test, _ = multilabel_dataset
-    knn = FaissKNNMultilabelClassifier(
-        n_neighbors=5, n_classes=None, device=device, metric=metric
-    )
+    knn = FaissKNNMultilabelClassifier(n_neighbors=5, n_classes=None, device=device, metric=metric)
     knn.fit(x_train, y_train)
     y_pred = knn.predict(x_test)
     y_proba = knn.predict_proba(x_test)

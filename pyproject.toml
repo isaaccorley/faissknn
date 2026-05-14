@@ -39,8 +39,7 @@ dependencies = [
 # driver version, so this is a manual choice. faiss-cuda and faiss-cuda-cu128
 # both provide the same `faiss` Python module and cannot cleanly coexist;
 # follow the swap recipe in the README.
-[project.optional-dependencies]
-cu13 = ["faiss-cuda>=1.14.1.post3,<2"]
+optional-dependencies.cu13 = [ "faiss-cuda>=1.14.1.post3,<2" ]
 
 [dependency-groups]
 dev = [
@@ -143,3 +142,6 @@ checks = [
   "RT02",
   "RT03",
 ]
+# Skip private helpers (e.g. `_neighbor_label_sums`) and `__del__` —
+# they aren't part of the public docs surface.
+exclude = [ '\._', '\.__' ]
