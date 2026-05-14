@@ -97,7 +97,10 @@ def test_multiclass_predict_matches_reference(multiclass_dataset):
     x_train, y_train, x_test, _ = multiclass_dataset
     knn = FaissKNNClassifier(n_neighbors=7, device="cpu")
     knn.fit(x_train, y_train)
-    _, idx = knn.index.search(np.atleast_2d(x_test).astype(np.float32), k=7)
+    # faiss.contrib.torch_utils monkey-patches search to a pythonic (x, k)
+    # signature at import time; the static SWIG signature still shows the
+    # raw (n, x, k, distances, labels) form.
+    _, idx = knn.index.search(np.atleast_2d(x_test).astype(np.float32), k=7)  # ty: ignore[missing-argument]
     class_idx = knn.y[idx]
     expected = _reference_multiclass(class_idx, knn.n_classes)
     np.testing.assert_array_equal(knn._class_counts(class_idx), expected)
@@ -111,7 +114,7 @@ def test_multilabel_predict_matches_reference(multilabel_dataset):
     new = knn.predict(x_test)
     new_proba = knn.predict_proba(x_test)
 
-    _, idx = knn.index.search(np.atleast_2d(x_test).astype(np.float32), k=5)
+    _, idx = knn.index.search(np.atleast_2d(x_test).astype(np.float32), k=5)  # ty: ignore[missing-argument]
     class_idx = knn.y[idx]
     ref_preds = []
     ref_probas = []

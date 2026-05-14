@@ -1,6 +1,6 @@
 """FAISS-based KNN classifiers for multiclass and multilabel classification."""
 
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import faiss
 import numpy as np
@@ -126,7 +126,7 @@ class FaissKNNClassifier:
         else:
             self.index = faiss.IndexFlatIP(d) if use_ip else faiss.IndexFlatL2(d)
 
-    def fit(self, X: Any, y: np.ndarray) -> object:
+    def fit(self, X: Any, y: np.ndarray) -> Self:
         """Store train X and y."""
         X = self._as_index_input(X)
         self.create_index(X.shape[-1])
