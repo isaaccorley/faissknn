@@ -126,7 +126,9 @@ class FaissKNNClassifier:
         if self.cuda:
             self.res = faiss.StandardGpuResources()  # ty: ignore[possibly-missing-attribute]
             self.config = faiss.GpuIndexFlatConfig()  # ty: ignore[possibly-missing-attribute]
-            self.config.device = self.device
+            # In the GPU branch self.device is always an int ordinal (set in
+            # __init__); default to 0 to satisfy the typed config.device field.
+            self.config.device = self.device if isinstance(self.device, int) else 0
             self.config.useFloat16 = self.use_fp16
             if use_ip:
                 self.index = faiss.GpuIndexFlatIP(self.res, d, self.config)  # ty: ignore[possibly-missing-attribute]

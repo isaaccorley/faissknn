@@ -10,25 +10,31 @@
 pip install faissknn
 ```
 
-Pulls in [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU-enabled FAISS wheels for CUDA 12.8) along with `numpy` and `torch`. No system CUDA toolkit required — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI.
+Pulls in [`faiss-cpu`](https://pypi.org/project/faiss-cpu/) along with `numpy` and `torch`. Works everywhere — no GPU, CUDA driver, or system toolkit required.
 
-The default wheel works on:
+#### GPU acceleration (CUDA 12.x)
 
-- **CPU-only hosts** — `import faiss` succeeds, `faiss.get_num_gpus()` returns 0, all CPU index types work
-- **CUDA 12.x hosts** (NVIDIA driver R525+) — full GPU acceleration
-- **CUDA 13 hosts** (NVIDIA driver R580+) — via NVIDIA's forward-compat guarantee. You just don't get the `sm_100` (Blackwell) arch
+For GPU-enabled FAISS on CUDA 12.x hosts (NVIDIA driver R525+), install the `[cuda]` extra, which adds [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU wheels for CUDA 12.8). No system CUDA toolkit needed — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI.
+
+```bash
+pip install "faissknn[cuda]"
+pip uninstall -y faiss-cpu
+pip install --force-reinstall faiss-cuda-cu128
+```
+
+These wheels also run on CUDA 13 hosts (driver R580+) via NVIDIA's forward-compat guarantee — you just don't get the `sm_100` (Blackwell) arch.
 
 #### Blackwell users (B100 / B200)
 
-If you need `sm_100` baked in, use the CUDA 13 wheel:
+If you need `sm_100` baked in, use the CUDA 13 wheel via the `[cu13]` extra, which adds [`faiss-cuda`](https://pypi.org/project/faiss-cuda/):
 
 ```bash
 pip install "faissknn[cu13]"
-pip uninstall -y faiss-cuda-cu128
+pip uninstall -y faiss-cpu
 pip install --force-reinstall faiss-cuda
 ```
 
-The `[cu13]` extra adds [`faiss-cuda`](https://pypi.org/project/faiss-cuda/) to the resolution, but because both packages ship the same `faiss/` module the manual uninstall+reinstall is what actually gives you a clean install. uv/pip can't auto-detect the host CUDA driver, so this is a one-time manual choice.
+Why the uninstall+reinstall? `faiss-cpu`, `faiss-cuda-cu128`, and `faiss-cuda` all ship the same `faiss/` module, so they can't cleanly coexist. The extra adds the GPU package to the resolution, but removing `faiss-cpu` and force-reinstalling is what actually gives you a clean GPU install. uv/pip can't auto-detect the host CUDA driver, so this is a one-time manual choice.
 
 ### Usage
 
