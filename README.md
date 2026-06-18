@@ -6,35 +6,35 @@
 
 ### Install
 
+`faissknn` needs a FAISS backend, which you choose at install time via an extra. Pick **exactly one** — they ship the same `faiss` module and can't coexist. For CPU (works everywhere — macOS, Windows, Linux; no GPU, CUDA driver, or system toolkit required):
+
 ```bash
-pip install faissknn
+pip install "faissknn[cpu]"
 ```
 
-Pulls in [`faiss-cpu`](https://pypi.org/project/faiss-cpu/) along with `numpy` and `torch`. Works everywhere — no GPU, CUDA driver, or system toolkit required.
+This pulls in [`faiss-cpu`](https://pypi.org/project/faiss-cpu/) along with `numpy` and `torch`.
+
+> A bare `pip install faissknn` installs no FAISS backend and raises a clear error at import time telling you to pick an extra. Always install one of `[cpu]`, `[cuda]`, or `[cu13]`.
 
 #### GPU acceleration (CUDA 12.x)
 
-For GPU-enabled FAISS on CUDA 12.x hosts (NVIDIA driver R525+), install the `[cuda]` extra, which adds [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU wheels for CUDA 12.8). No system CUDA toolkit needed — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI.
+For GPU-enabled FAISS on CUDA 12.x hosts (NVIDIA driver R525+), use the `[cuda]` extra, which installs [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU wheels for CUDA 12.8) instead of `faiss-cpu`. No system CUDA toolkit needed — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI.
 
 ```bash
 pip install "faissknn[cuda]"
-pip uninstall -y faiss-cpu
-pip install --force-reinstall faiss-cuda-cu128
 ```
 
-These wheels also run on CUDA 13 hosts (driver R580+) via NVIDIA's forward-compat guarantee — you just don't get the `sm_100` (Blackwell) arch.
+These wheels (Linux x86_64) also run on CUDA 13 hosts (driver R580+) via NVIDIA's forward-compat guarantee — you just don't get the `sm_100` (Blackwell) arch.
 
 #### Blackwell users (B100 / B200)
 
-If you need `sm_100` baked in, use the CUDA 13 wheel via the `[cu13]` extra, which adds [`faiss-cuda`](https://pypi.org/project/faiss-cuda/):
+If you need `sm_100` baked in, use the CUDA 13 wheel via the `[cu13]` extra, which installs [`faiss-cuda`](https://pypi.org/project/faiss-cuda/):
 
 ```bash
 pip install "faissknn[cu13]"
-pip uninstall -y faiss-cpu
-pip install --force-reinstall faiss-cuda
 ```
 
-Why the uninstall+reinstall? `faiss-cpu`, `faiss-cuda-cu128`, and `faiss-cuda` all ship the same `faiss/` module, so they can't cleanly coexist. The extra adds the GPU package to the resolution, but removing `faiss-cpu` and force-reinstalling is what actually gives you a clean GPU install. uv/pip can't auto-detect the host CUDA driver, so this is a one-time manual choice.
+uv/pip can't auto-detect the host CUDA driver, so the backend is a manual choice. Because nothing is installed until you pick an extra, a **fresh** install of any single extra is clean — no base `faiss-cpu` to fight, no uninstall/reinstall dance. If you later want to **switch** backends in the same environment, uninstall the current one first (e.g. `pip uninstall -y faiss-cpu`) before installing the other extra, since the FAISS packages share the `faiss` module and can't coexist.
 
 ### Usage
 

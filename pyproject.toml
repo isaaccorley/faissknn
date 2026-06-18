@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.9.3,<0.10" ]
 
 [project]
 name = "faissknn"
-version = "0.2.0"
+version = "0.3.0"
 description = "FAISS implementation of multiclass and multilabel K-Nearest Neighbors Classifiers."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -22,28 +22,30 @@ classifiers = [
 ]
 
 dependencies = [
-  # faiss-cpu is the default backend — works everywhere with no GPU, CUDA
-  # driver, or system toolkit required. For GPU acceleration, install an
-  # opt-in CUDA extra ([cuda] or [cu13]) and follow the swap recipe in the
-  # README (the CUDA wheels ship the same `faiss` module as faiss-cpu and
-  # cannot cleanly coexist, so the extra is a one-time manual choice).
-  "faiss-cpu>=1.8,<2",
+  # No FAISS backend is pinned here on purpose: faiss-cpu and the GPU wheels
+  # (faiss-cuda-cu128 / faiss-cuda) all ship the same `faiss` module and can't
+  # coexist. Users pick exactly one backend via an extra ([cpu], [cuda], or
+  # [cu13]), so there's never an install-then-uninstall swap. A bare install
+  # with no extra raises a clear, actionable error at import time (see knn.py).
   "numpy>=2,<3",
   "torch>=2,<3",
 ]
 
-# Opt-in GPU backends. uv/pip can't introspect the host CUDA driver, so the
-# choice is manual. faiss-cpu, faiss-cuda-cu128, and faiss-cuda all provide
-# the same `faiss` Python module and cannot cleanly coexist; follow the swap
-# recipe in the README.
-#   * cuda  -> faiss-cuda-cu128 (CUDA 12.8 wheels, driver R525+; also runs on
-#              CUDA 13 via NVIDIA forward-compat, minus the sm_100 arch)
-#   * cu13  -> faiss-cuda (CUDA 13 wheels with sm_100/Blackwell baked in)
+# Pick exactly one FAISS backend — they cannot coexist (same `faiss` module).
+# uv/pip can't introspect the host CUDA driver, so the choice is manual.
+#   * cpu   -> faiss-cpu        (all platforms incl. macOS/Windows; the default)
+#   * cuda  -> faiss-cuda-cu128 (CUDA 12.8 wheels, driver R525+; Linux x86_64;
+#              also runs on CUDA 13 via NVIDIA forward-compat, minus sm_100)
+#   * cu13  -> faiss-cuda       (CUDA 13 wheels with sm_100/Blackwell; Linux)
+optional-dependencies.cpu = [ "faiss-cpu>=1.8,<2" ]
 optional-dependencies.cu13 = [ "faiss-cuda>=1.14.1.post3,<2" ]
 optional-dependencies.cuda = [ "faiss-cuda-cu128>=1.14.1.post1,<2" ]
 
 [dependency-groups]
 dev = [
+  # Concrete backend for local dev + CI; end users choose via the [cpu]/[cuda]/
+  # [cu13] extras instead.
+  "faiss-cpu>=1.8,<2",
   "ipykernel>=7.0.1",
   "ipywidgets>=8.1.7",
   "pre-commit>=4.3",

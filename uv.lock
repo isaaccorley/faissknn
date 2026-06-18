@@ -398,15 +398,17 @@ wheels = [
 
 [[package]]
 name = "faissknn"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
-    { name = "faiss-cpu" },
     { name = "numpy" },
     { name = "torch" },
 ]
 
 [package.optional-dependencies]
+cpu = [
+    { name = "faiss-cpu" },
+]
 cu13 = [
     { name = "faiss-cuda" },
 ]
@@ -416,6 +418,7 @@ cuda = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "faiss-cpu" },
     { name = "ipykernel" },
     { name = "ipywidgets" },
     { name = "pre-commit" },
@@ -428,16 +431,17 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "faiss-cpu", specifier = ">=1.8,<2" },
+    { name = "faiss-cpu", marker = "extra == 'cpu'", specifier = ">=1.8,<2" },
     { name = "faiss-cuda", marker = "extra == 'cu13'", specifier = ">=1.14.1.post3,<2" },
     { name = "faiss-cuda-cu128", marker = "extra == 'cuda'", specifier = ">=1.14.1.post1,<2" },
     { name = "numpy", specifier = ">=2,<3" },
     { name = "torch", specifier = ">=2,<3" },
 ]
-provides-extras = ["cu13", "cuda"]
+provides-extras = ["cpu", "cu13", "cuda"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "faiss-cpu", specifier = ">=1.8,<2" },
     { name = "ipykernel", specifier = ">=7.0.1" },
     { name = "ipywidgets", specifier = ">=8.1.7" },
     { name = "pre-commit", specifier = ">=4.3" },
