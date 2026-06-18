@@ -2,8 +2,22 @@
 
 from typing import Any, Literal, Self
 
-import faiss
 import numpy as np
+
+try:
+    import faiss
+except ModuleNotFoundError as e:  # pragma: no cover
+    # faissknn intentionally pins no FAISS backend (the cpu/cuda wheels share
+    # the same `faiss` module and can't coexist). Turn the bare ImportError
+    # into an actionable message naming the extras the user must choose from.
+    msg = (
+        "faissknn requires a FAISS backend, which is not installed. "
+        "Install exactly one of the optional extras:\n"
+        "  pip install 'faissknn[cpu]'   # CPU — all platforms (the default)\n"
+        "  pip install 'faissknn[cuda]'  # GPU — CUDA 12.x, Linux x86_64\n"
+        "  pip install 'faissknn[cu13]'  # GPU — CUDA 13 / Blackwell, Linux"
+    )
+    raise ModuleNotFoundError(msg) from e
 
 # torch is a hard runtime dependency of this package, but be defensive in
 # case anyone uses faissknn in a torch-free env (e.g. mocked imports).
