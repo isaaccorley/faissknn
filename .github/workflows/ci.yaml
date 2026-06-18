@@ -7,15 +7,22 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Exercise the default install (faiss-cpu) across every OS we ship wheels
+    # for. The GPU extras (cuda / cu13) are Linux-x86_64-only and need a GPU,
+    # so they aren't installed here — see README for the manual swap recipe.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7.1
         with:
             enable-cache: true
-      - run: uv run --all-extras --dev pytest -vvv --cov=src
+      - run: uv run --dev pytest -vvv --cov=src
       - name: Report Coverage
-        run: uv run --all-extras --dev coverage report -m
+        run: uv run --dev coverage report -m
 
   pre-commit:
     runs-on: ubuntu-latest
@@ -25,4 +32,4 @@ jobs:
         with:
             enable-cache: true
       - name: pre-commit
-        run: uv run --all-extras --dev pre-commit run --all-files -v
+        run: uv run --dev pre-commit run --all-files -v
