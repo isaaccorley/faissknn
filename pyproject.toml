@@ -22,22 +22,17 @@ classifiers = [
 ]
 
 dependencies = [
-  # No FAISS backend pinned on purpose: users pick one via [cpu] or [cuda].
-  # A bare install raises an actionable error at import time (see knn.py).
+  # No FAISS backend on purpose: pick one via [cpu] or [cuda].
   "numpy>=2,<3",
   "torch>=2,<3",
 ]
 
-# Pick exactly one FAISS backend — faiss-cpu and faiss-cuda ship the same
-# `faiss` module and cannot coexist. faiss-cuda (Linux x86_64, driver R525+)
-# also works on GPU-less machines.
+# Backends ship the same `faiss` module and cannot coexist — install exactly one.
 optional-dependencies.cpu = [ "faiss-cpu>=1.8,<2" ]
 optional-dependencies.cuda = [ "faiss-cuda>=1.14.3,<2" ]
 
 [dependency-groups]
 dev = [
-  # Concrete backend for local dev + CI; end users choose via the [cpu]/[cuda]/
-  # [cu13] extras instead.
   "faiss-cpu>=1.8,<2",
   "ipykernel>=7.0.1",
   "ipywidgets>=8.1.7",
