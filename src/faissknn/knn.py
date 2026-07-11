@@ -1,20 +1,25 @@
 """FAISS-based KNN classifiers for multiclass and multilabel classification."""
 
+import sys
 from typing import Any, Literal, Self
 
 import numpy as np
 
-# torch must be imported before faiss: faiss-cuda preloads CUDA 12 libraries,
-# and letting a CUDA 13 torch load first keeps each stack resolving its own
-# symbols (importing faiss first segfaulted on V100 + torch cu130; see
-# torchgeo/torchgeo-bench#152).
-try:
-    import torch
 
-    _TORCH_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    torch = None  # type: ignore[assignment]
-    _TORCH_AVAILABLE = False
+def _try_import_torch():
+    try:
+        import torch
+    except ImportError:  # pragma: no cover
+        return None
+    return torch
+
+
+# The safe torch/faiss import order differs by platform. On Linux, torch must
+# load before faiss: faiss-cuda preloads CUDA 12 libraries, and a CUDA 13
+# torch imported afterwards can bind them (segfault on V100 + torch cu130;
+# torchgeo/torchgeo-bench#152). On macOS the reverse order is required —
+# torch-first segfaults faiss-cpu at import (duplicate OpenMP runtimes).
+torch = _try_import_torch() if sys.platform == "linux" else None
 
 try:
     import faiss
@@ -29,6 +34,10 @@ except ModuleNotFoundError as e:  # pragma: no cover
         "  pip install 'faissknn[cuda]'  # GPU — NVIDIA, Linux x86_64"
     )
     raise ModuleNotFoundError(msg) from e
+
+if torch is None:
+    torch = _try_import_torch()
+_TORCH_AVAILABLE = torch is not None
 
 if _TORCH_AVAILABLE:
     try:
