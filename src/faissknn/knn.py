@@ -4,6 +4,18 @@ from typing import Any, Literal, Self
 
 import numpy as np
 
+# torch must be imported before faiss: faiss-cuda preloads CUDA 12 libraries,
+# and letting a CUDA 13 torch load first keeps each stack resolving its own
+# symbols (importing faiss first segfaulted on V100 + torch cu130; see
+# torchgeo/torchgeo-bench#152).
+try:
+    import torch
+
+    _TORCH_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    torch = None  # type: ignore[assignment]
+    _TORCH_AVAILABLE = False
+
 try:
     import faiss
 except ModuleNotFoundError as e:  # pragma: no cover
@@ -18,16 +30,11 @@ except ModuleNotFoundError as e:  # pragma: no cover
     )
     raise ModuleNotFoundError(msg) from e
 
-# torch is a hard runtime dependency of this package, but be defensive in
-# case anyone uses faissknn in a torch-free env (e.g. mocked imports).
-try:
-    import faiss.contrib.torch_utils  # monkey-patches faiss add/search
-    import torch
-
-    _TORCH_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    torch = None  # type: ignore[assignment]
-    _TORCH_AVAILABLE = False
+if _TORCH_AVAILABLE:
+    try:
+        import faiss.contrib.torch_utils  # monkey-patches faiss add/search
+    except ImportError:  # pragma: no cover
+        _TORCH_AVAILABLE = False
 
 Metric = Literal["l2", "ip", "cosine"]
 

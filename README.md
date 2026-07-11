@@ -18,7 +18,7 @@ This pulls in [`faiss-cpu`](https://pypi.org/project/faiss-cpu/) along with `num
 
 #### GPU acceleration
 
-On Linux x86_64 with an NVIDIA driver (R525+), use the `[cuda]` extra, which installs [`faiss-cuda`](https://pypi.org/project/faiss-cuda/) (Taylor Geospatial's GPU wheels, CUDA 12.8, arch sm_70–sm_120: V100 through B200/RTX-50) instead of `faiss-cpu`. No system CUDA toolkit needed — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI. The GPU wheel contains the full CPU implementation too, so it also works on GPU-less machines.
+On Linux x86_64 with an NVIDIA driver (R525+), use the `[cuda]` extra, which installs [`faiss-cuda`](https://pypi.org/project/faiss-cuda/) (Taylor Geospatial's GPU wheels, CUDA 12.8, arch sm_70/80/86/89/90: V100, A100, A10/A30/RTX-30, RTX-40, H100/H200 — T4/Blackwell/RTX-50 pending [a PyPI size-limit increase](https://github.com/pypi/support/issues/11444)) instead of `faiss-cpu`. No system CUDA toolkit needed — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI. The GPU wheel contains the full CPU implementation too, so it also works on GPU-less machines.
 
 ```bash
 pip install "faissknn[cuda]"
