@@ -1,13 +1,12 @@
 """FAISS-based KNN classifiers for multiclass and multilabel classification."""
 
 import sys
-import types
 from typing import Any, Literal, Self
 
 import numpy as np
 
 
-def _try_import_torch() -> types.ModuleType | None:
+def _try_import_torch() -> Any:
     try:
         import torch
     except ImportError:  # pragma: no cover
