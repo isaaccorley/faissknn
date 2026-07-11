@@ -14,24 +14,14 @@ pip install "faissknn[cpu]"
 
 This pulls in [`faiss-cpu`](https://pypi.org/project/faiss-cpu/) along with `numpy` and `torch`.
 
-> A bare `pip install faissknn` installs no FAISS backend and raises a clear error at import time telling you to pick an extra. Always install one of `[cpu]`, `[cuda]`, or `[cu13]`.
+> A bare `pip install faissknn` installs no FAISS backend and raises a clear error at import time telling you to pick an extra. Always install one of `[cpu]` or `[cuda]`.
 
-#### GPU acceleration (CUDA 12.x)
+#### GPU acceleration
 
-For GPU-enabled FAISS on CUDA 12.x hosts (NVIDIA driver R525+), use the `[cuda]` extra, which installs [`faiss-cuda-cu128`](https://pypi.org/project/faiss-cuda-cu128/) (Taylor Geospatial's GPU wheels for CUDA 12.8) instead of `faiss-cpu`. No system CUDA toolkit needed — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI.
+On Linux x86_64 with an NVIDIA driver (R525+), use the `[cuda]` extra, which installs [`faiss-cuda`](https://pypi.org/project/faiss-cuda/) (Taylor Geospatial's GPU wheels, CUDA 12.8, arch sm_70–sm_120: V100 through B200/RTX-50) instead of `faiss-cpu`. No system CUDA toolkit needed — the runtime libraries come from `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` on PyPI. The GPU wheel contains the full CPU implementation too, so it also works on GPU-less machines.
 
 ```bash
 pip install "faissknn[cuda]"
-```
-
-These wheels (Linux x86_64) also run on CUDA 13 hosts (driver R580+) via NVIDIA's forward-compat guarantee — you just don't get the `sm_100` (Blackwell) arch.
-
-#### Blackwell users (B100 / B200)
-
-If you need `sm_100` baked in, use the CUDA 13 wheel via the `[cu13]` extra, which installs [`faiss-cuda`](https://pypi.org/project/faiss-cuda/):
-
-```bash
-pip install "faissknn[cu13]"
 ```
 
 uv/pip can't auto-detect the host CUDA driver, so the backend is a manual choice. Because nothing is installed until you pick an extra, a **fresh** install of any single extra is clean — no base `faiss-cpu` to fight, no uninstall/reinstall dance. If you later want to **switch** backends in the same environment, uninstall the current one first (e.g. `pip uninstall -y faiss-cpu`) before installing the other extra, since the FAISS packages share the `faiss` module and can't coexist.

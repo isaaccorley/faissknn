@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.9.3,<0.10" ]
 
 [project]
 name = "faissknn"
-version = "0.3.0"
+version = "0.4.0"
 description = "FAISS implementation of multiclass and multilabel K-Nearest Neighbors Classifiers."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -22,24 +22,17 @@ classifiers = [
 ]
 
 dependencies = [
-  # No FAISS backend is pinned here on purpose: faiss-cpu and the GPU wheels
-  # (faiss-cuda-cu128 / faiss-cuda) all ship the same `faiss` module and can't
-  # coexist. Users pick exactly one backend via an extra ([cpu], [cuda], or
-  # [cu13]), so there's never an install-then-uninstall swap. A bare install
-  # with no extra raises a clear, actionable error at import time (see knn.py).
+  # No FAISS backend pinned on purpose: users pick one via [cpu] or [cuda].
+  # A bare install raises an actionable error at import time (see knn.py).
   "numpy>=2,<3",
   "torch>=2,<3",
 ]
 
-# Pick exactly one FAISS backend — they cannot coexist (same `faiss` module).
-# uv/pip can't introspect the host CUDA driver, so the choice is manual.
-#   * cpu   -> faiss-cpu        (all platforms incl. macOS/Windows; the default)
-#   * cuda  -> faiss-cuda-cu128 (CUDA 12.8 wheels, driver R525+; Linux x86_64;
-#              also runs on CUDA 13 via NVIDIA forward-compat, minus sm_100)
-#   * cu13  -> faiss-cuda       (CUDA 13 wheels with sm_100/Blackwell; Linux)
+# Pick exactly one FAISS backend — faiss-cpu and faiss-cuda ship the same
+# `faiss` module and cannot coexist. faiss-cuda (Linux x86_64, driver R525+)
+# also works on GPU-less machines.
 optional-dependencies.cpu = [ "faiss-cpu>=1.8,<2" ]
-optional-dependencies.cu13 = [ "faiss-cuda>=1.14.1.post3,<2" ]
-optional-dependencies.cuda = [ "faiss-cuda-cu128>=1.14.1.post1,<2" ]
+optional-dependencies.cuda = [ "faiss-cuda>=1.14.3,<2" ]
 
 [dependency-groups]
 dev = [

@@ -13,9 +13,8 @@ except ModuleNotFoundError as e:  # pragma: no cover
     msg = (
         "faissknn requires a FAISS backend, which is not installed. "
         "Install exactly one of the optional extras:\n"
-        "  pip install 'faissknn[cpu]'   # CPU — all platforms (the default)\n"
-        "  pip install 'faissknn[cuda]'  # GPU — CUDA 12.x, Linux x86_64\n"
-        "  pip install 'faissknn[cu13]'  # GPU — CUDA 13 / Blackwell, Linux"
+        "  pip install 'faissknn[cpu]'   # CPU — all platforms\n"
+        "  pip install 'faissknn[cuda]'  # GPU — NVIDIA, Linux x86_64"
     )
     raise ModuleNotFoundError(msg) from e
 
