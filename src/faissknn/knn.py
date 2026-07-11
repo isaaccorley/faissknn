@@ -5,21 +5,11 @@ from typing import Any, Literal, Self
 
 import numpy as np
 
-
-def _try_import_torch() -> Any:
-    try:
-        import torch
-    except ImportError:  # pragma: no cover
-        return None
-    return torch
-
-
-# The safe torch/faiss import order differs by platform. On Linux, torch must
-# load before faiss: faiss-cuda preloads CUDA 12 libraries, and a CUDA 13
-# torch imported afterwards can bind them (segfault on V100 + torch cu130;
-# torchgeo/torchgeo-bench#152). On macOS the reverse order is required —
-# torch-first segfaults faiss-cpu at import (duplicate OpenMP runtimes).
-torch = _try_import_torch() if sys.platform == "linux" else None
+if sys.platform == "linux":
+    # Import order is load-bearing: a CUDA 13 torch must load before
+    # faiss-cuda's CUDA 12 preload, while on macOS torch-first crashes
+    # faiss-cpu's OpenMP (torchgeo/torchgeo-bench#152).
+    import torch
 
 try:
     import faiss
@@ -35,15 +25,8 @@ except ModuleNotFoundError as e:  # pragma: no cover
     )
     raise ModuleNotFoundError(msg) from e
 
-if torch is None:
-    torch = _try_import_torch()
-_TORCH_AVAILABLE = torch is not None
-
-if _TORCH_AVAILABLE:
-    try:
-        import faiss.contrib.torch_utils  # monkey-patches faiss add/search
-    except ImportError:  # pragma: no cover
-        _TORCH_AVAILABLE = False
+import faiss.contrib.torch_utils
+import torch
 
 Metric = Literal["l2", "ip", "cosine"]
 
@@ -119,7 +102,7 @@ class FaissKNNClassifier:
         is applied in-place. Everything else becomes a contiguous fp32
         numpy array.
         """
-        if _TORCH_AVAILABLE and isinstance(X, torch.Tensor):
+        if isinstance(X, torch.Tensor):
             X = X.detach().contiguous().to(torch.float32)
             if self.cuda and X.is_cuda:
                 if self.metric == "cosine":
@@ -135,7 +118,7 @@ class FaissKNNClassifier:
     @staticmethod
     def _idx_to_numpy(idx: Any) -> np.ndarray:
         """FAISS may return a torch tensor when given torch input — normalize."""
-        if _TORCH_AVAILABLE and isinstance(idx, torch.Tensor):
+        if isinstance(idx, torch.Tensor):
             return idx.cpu().numpy()
         return idx
 
@@ -188,7 +171,7 @@ class FaissKNNClassifier:
         X = self._as_index_input(X)
         self.create_index(X.shape[-1])
         self.index.add(X)  # type: ignore[arg-type]
-        if _TORCH_AVAILABLE and isinstance(y, torch.Tensor):
+        if isinstance(y, torch.Tensor):
             y = y.detach().cpu().numpy()
         self.y = y.astype(int)
         if self.n_classes is None:
