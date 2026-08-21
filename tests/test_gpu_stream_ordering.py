@@ -14,9 +14,11 @@ still being produced by pending matmuls on torch's stream when
 
 import numpy as np
 import pytest
-import torch
 
-from faissknn import FaissKNNClassifier
+from faissknn import FaissKNNClassifier  # before torch on macOS (see knn.py)
+
+# isort: split
+import torch
 
 pytestmark = pytest.mark.skipif(
     not torch.cuda.is_available() or torch.cuda.device_count() < 2,
