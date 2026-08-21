@@ -1,5 +1,6 @@
 """FAISS-based KNN classifiers for multiclass and multilabel classification."""
 
+import contextlib
 import sys
 from typing import Any, Literal, Self
 
@@ -87,6 +88,19 @@ class FaissKNNClassifier:
             else:
                 self.device = 0
 
+    def _device_ctx(self) -> contextlib.AbstractContextManager:
+        """Context manager that sets torch's current device to the index's GPU.
+
+        ``faiss.contrib.torch_utils`` reads ``torch.cuda.current_device()`` to
+        decide which stream to sync faiss against (see issue #14). Without
+        this, a GPU index on a non-default device races against torch's
+        producing/consuming kernels on any other current device, silently
+        corrupting results. A no-op on CPU.
+        """
+        if self.cuda:
+            return torch.cuda.device(self.device)
+        return contextlib.nullcontext()
+
     def _as_index_input(self, X: Any) -> Any:
         """Coerce input for FAISS ingestion + apply metric-specific prep.
 
@@ -164,7 +178,8 @@ class FaissKNNClassifier:
         """
         X = self._as_index_input(X)
         self.create_index(X.shape[-1])
-        self.index.add(X)  # type: ignore[arg-type]
+        with self._device_ctx():
+            self.index.add(X)  # type: ignore[arg-type]
         if isinstance(y, torch.Tensor):
             y = y.detach().cpu().numpy()
         self.y = y.astype(int)
@@ -202,7 +217,8 @@ class FaissKNNClassifier:
             Predicted integer class labels, shape (n_samples,).
         """
         X = self._as_index_input(X)
-        _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
+        with self._device_ctx():
+            _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         idx = self._idx_to_numpy(idx)
         class_idx = self.y[idx]
         return np.argmax(self._class_counts(class_idx), axis=1)
@@ -221,7 +237,8 @@ class FaissKNNClassifier:
             Predicted class probabilities, shape (n_samples, n_classes).
         """
         X = self._as_index_input(X)
-        _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
+        with self._device_ctx():
+            _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         idx = self._idx_to_numpy(idx)
         class_idx = self.y[idx]
         return self._class_counts(class_idx) / self.n_neighbors
@@ -233,7 +250,8 @@ class FaissKNNMultilabelClassifier(FaissKNNClassifier):
     def _neighbor_label_sums(self, X: Any) -> np.ndarray:
         """Per-query, per-label count of positive (``==1``) neighbors."""
         X = self._as_index_input(X)
-        _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
+        with self._device_ctx():
+            _, idx = self.index.search(X, k=self.n_neighbors)  # type: ignore[missing-argument]
         idx = self._idx_to_numpy(idx)
         # self.y[idx] -> (N, k, L) with values in {0, 1}; sum over k gives
         # count of 1s per (query, label).
