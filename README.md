@@ -93,7 +93,7 @@ If you use `faissknn` in your research, please considering citing!
   month        = jan,
   year         = 2026,
   publisher    = {Zenodo},
-  version      = {v0.0.3},
+  version      = {v0.4.2},
   doi          = {10.5281/zenodo.18370748},
   url          = {https://doi.org/10.5281/zenodo.18370748},
 }
